@@ -44,7 +44,7 @@ typedef unsigned __int32 uint32_t;
 #define SSL_OP_NO_TICKET 0
 #endif
 
-#define CIPHERS "DEFAULT:!EXPORT:!LOW:!SSLv2"
+#define CIPHERS "DEFAULT:!EXPORT:!LOW:!RC4:!SSLv2"
 
 /*
  * R15B changed several driver callbacks to use ErlDrvSizeT and
@@ -98,6 +98,10 @@ struct hash_table {
 };
 
 struct hash_table ht;
+
+int use_default = 1;
+char *default_cipher_specification = CIPHERS;
+char custom_cipher_specification[1024];
 
 static void init_hash_table()
 {
@@ -362,16 +366,17 @@ static void setup_dh(SSL_CTX *ctx)
 }
 #endif
 
-#define SET_CERTIFICATE_FILE_ACCEPT 1
+#define SET_CERTIFICATE_FILE_ACCEPT  1
 #define SET_CERTIFICATE_FILE_CONNECT 2
-#define SET_ENCRYPTED_INPUT  3
-#define SET_DECRYPTED_OUTPUT 4
-#define GET_ENCRYPTED_OUTPUT 5
-#define GET_DECRYPTED_INPUT  6
-#define GET_PEER_CERTIFICATE 7
-#define GET_VERIFY_RESULT    8
-#define VERIFY_NONE 0x10000
-#define COMPRESSION_NONE 0x100000
+#define SET_ENCRYPTED_INPUT          3
+#define SET_DECRYPTED_OUTPUT         4
+#define GET_ENCRYPTED_OUTPUT         5
+#define GET_DECRYPTED_INPUT          6
+#define GET_PEER_CERTIFICATE         7
+#define GET_VERIFY_RESULT            8
+#define SET_CIPHER_SPECIFICATION     9
+#define VERIFY_NONE                  0x10000
+#define COMPRESSION_NONE             0x100000
 
 #define die_unless(cond, errstr)				\
 	 if (!(cond))						\
@@ -409,6 +414,7 @@ static ErlDrvSSizeT tls_drv_control(ErlDrvData handle,
    tls_data *d = (tls_data *)handle;
    int res;
    int size;
+   int cipher_list;
    ErlDrvBinary *b;
    X509 *cert;
    unsigned int flags = command;
@@ -418,6 +424,10 @@ static ErlDrvSSizeT tls_drv_control(ErlDrvData handle,
    ERR_clear_error();
    switch (command)
    {
+      case SET_CIPHER_SPECIFICATION:
+	use_default = 0;
+	strncpy(custom_cipher_specification, buf, len);
+	break;
       case SET_CERTIFICATE_FILE_ACCEPT:
       case SET_CERTIFICATE_FILE_CONNECT: {
 	 time_t mtime = 0;
@@ -440,7 +450,10 @@ static ErlDrvSSizeT tls_drv_control(ErlDrvData handle,
 	    res = SSL_CTX_check_private_key(ctx);
 	    die_unless(res > 0, "SSL_CTX_check_private_key failed");
 
-	    SSL_CTX_set_cipher_list(ctx, CIPHERS);
+	    cipher_list = SSL_CTX_set_cipher_list(ctx,
+			    use_default ? default_cipher_specification :
+			    custom_cipher_specification);
+	    die_unless(cipher_list ,"SSL_CTX_set_cipher_list failed");
 
 #ifndef OPENSSL_NO_ECDH
 	    if (command == SET_CERTIFICATE_FILE_ACCEPT) {

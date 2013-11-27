@@ -58,6 +58,8 @@
 
 -define(GET_VERIFY_RESULT, 8).
 
+-define(SET_CIPHER_SPECIFICATION, 9).
+
 -define(VERIFY_NONE, 16#10000).
 
 -define(COMPRESSION_NONE, 16#100000).
@@ -113,7 +115,15 @@ tcp_to_tls(TCPSocket, Options) ->
       {value, {certfile, CertFile}} ->
 	  load_driver(),
 	  Port = open_port({spawn, "p1_tls_drv"}, [binary]),
-	  Flags1 = case lists:member(verify_none, Options) of
+
+          case lists:keysearch(cipher_specification, 1, Options) of
+            {value, {cipher_specification, CipherSpec}} ->
+                CipherSpec1 = iolist_to_binary(CipherSpec),
+                port_control(Port, ?SET_CIPHER_SPECIFICATION, CipherSpec1);
+            false -> ok
+          end,
+	  
+          Flags1 = case lists:member(verify_none, Options) of
                        true -> ?VERIFY_NONE;
                        false -> 0
                    end,
