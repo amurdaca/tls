@@ -426,7 +426,7 @@ static ErlDrvSSizeT tls_drv_control(ErlDrvData handle,
    {
       case SET_CIPHER_SPECIFICATION:
 	use_default = 0;
-	custom_cipher_specification = (*char)malloc(len + 1);
+	custom_cipher_specification = (char *)malloc(len + 1);
 	strncpy(custom_cipher_specification, buf, len);
 	break;
       case SET_CERTIFICATE_FILE_ACCEPT:
