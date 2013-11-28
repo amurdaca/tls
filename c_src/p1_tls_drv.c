@@ -101,7 +101,7 @@ struct hash_table ht;
 
 int use_default = 1;
 char *default_cipher_specification = CIPHERS;
-char custom_cipher_specification[1024];
+char *custom_cipher_specification;
 
 static void init_hash_table()
 {
@@ -426,6 +426,7 @@ static ErlDrvSSizeT tls_drv_control(ErlDrvData handle,
    {
       case SET_CIPHER_SPECIFICATION:
 	use_default = 0;
+	custom_cipher_specification = (*char)malloc(len + 1);
 	strncpy(custom_cipher_specification, buf, len);
 	break;
       case SET_CERTIFICATE_FILE_ACCEPT:
