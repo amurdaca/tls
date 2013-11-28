@@ -34,6 +34,7 @@ typedef struct {
       BIO *bio_read;
       BIO *bio_write;
       SSL *ssl;
+      char *cipher_specification;
 } tls_data;
 
 #ifdef _WIN32
@@ -98,10 +99,6 @@ struct hash_table {
 };
 
 struct hash_table ht;
-
-int use_default = 1;
-char *default_cipher_specification = CIPHERS;
-char *custom_cipher_specification;
 
 static void init_hash_table()
 {
@@ -223,6 +220,7 @@ static ErlDrvData tls_drv_start(ErlDrvPort port, char *buff)
    d->bio_read = NULL;
    d->bio_write = NULL;
    d->ssl = NULL;
+   d->cipher_specification = NULL;
 
    set_port_control_flags(port, PORT_CONTROL_FLAG_BINARY);
 
@@ -425,9 +423,8 @@ static ErlDrvSSizeT tls_drv_control(ErlDrvData handle,
    switch (command)
    {
       case SET_CIPHER_SPECIFICATION:
-	use_default = 0;
-	custom_cipher_specification = (char *)malloc(len + 1);
-	strncpy(custom_cipher_specification, buf, len);
+	d->cipher_specification = (char *)malloc(len + 1);
+	strncpy(d->cipher_specification, buf, len);
 	break;
       case SET_CERTIFICATE_FILE_ACCEPT:
       case SET_CERTIFICATE_FILE_CONNECT: {
@@ -452,8 +449,8 @@ static ErlDrvSSizeT tls_drv_control(ErlDrvData handle,
 	    die_unless(res > 0, "SSL_CTX_check_private_key failed");
 
 	    cipher_list = SSL_CTX_set_cipher_list(ctx,
-			    use_default ? default_cipher_specification :
-			    custom_cipher_specification);
+			    d->cipher_specification == NULL
+			    ? CIPHERS : d->cipher_specification);
 	    die_unless(cipher_list ,"SSL_CTX_set_cipher_list failed");
 
 #ifndef OPENSSL_NO_ECDH
